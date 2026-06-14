@@ -1,6 +1,5 @@
 import sys
 import json
-import ast
 from pdf_Reader import extract_pdf
 
 def build_pages(texts, sources):

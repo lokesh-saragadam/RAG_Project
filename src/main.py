@@ -8,53 +8,47 @@ from vector_store import build_index,search_semantic
 from rag_pipeline import answer_with_context
 from evaluation import evaluate_source_score
 
-file_paths = ["../data/4k weeks.pdf","../data/Atomic habits.pdf","../data/Web App Development Plan.pdf"]
+# file_paths = ["../data/4k weeks.pdf","../data/Atomic habits.pdf","../data/Web App Development Plan.pdf"]
 
-sources = [ "Four Thousand Weeks","Atomic Habits", "Web Development Plan"]
+# sources = [ "Four Thousand Weeks","Atomic Habits", "Web Development Plan"]
 
-texts = extract_pdf(file_paths)
+# texts = extract_pdf(file_paths)
 
-chunks = chunk_text(texts,sources,chunk_size=500)
+# chunks = chunk_text(texts,sources,chunk_size=500)
 
-print("Total Chunks :",len(chunks))
+# print("Total Chunks :",len(chunks))
 
-save_chunks(chunks,"..\data\chunks.jsonl")
+# save_chunks(chunks,"..\data\chunks.jsonl")
 
-sys.exit()
+# sys.exit()
 
 chunks = load_chunks("..\data\chunks.jsonl")
 
-
 queries_data = load_queries("..\data\Queries.json")
-# top_k_chunks = search_chunks(query,chunks)
+
 queries = query_extraction(queries_data)
-# print("The answer fromchunks of keyword search")
-# print(answer_with_context(query=query,retrieved_chunks=top\
-# _k_chunks))
-
-
 
 #storing semantic meanaing of the chunks
 string_chunks = [f"{chunk}" for chunk in chunks]
 build_index(string_chunks)
 
 #searching for the similiar vectors to that of a query vector
-best_indices = search_semantic(queries)
-
+best_indices = search_semantic(queries,k=5)
 
 print("The sources used include : ",)
 different_query_chunks =[]
+retrieval_chunk_idx = []
 for best_idx in best_indices:
-    top_3_chunks = []
+    top_k_chunks_stringified = []
+    top_k_chunks = []
     for idx in best_idx:
-        top_3_chunks.append(string_chunks[idx])
-    different_query_chunks.append(top_3_chunks)
+        top_k_chunks_stringified.append(string_chunks[idx])
+        top_k_chunks.append(chunks[idx])
+    different_query_chunks.extend(top_k_chunks_stringified)
+    retrieval_chunk_idx.append(top_k_chunks)
 
 #Retreival evaluation
+score_source = evaluate_source_score(queries_data,retrieval_chunk_idx) #retreival accuracy.
 
-
-score_source = evaluate_source_score(queries_data,different_query_chunks)
-
-
-print("The answer from chunks of embedded search \n",answer_with_context(query=queries,context=different_query_chunks))
-
+# print("The answer from chunks of embedded search \n",answer_with_context(query=queries,context=different_query_chunks))
+print("Source matches are : ",score_source)

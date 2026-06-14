@@ -17,7 +17,7 @@ def build_index(chunks):
     faiss.write_index(index, "my_faiss_index.index")
 
 
-def search_semantic(queries):
+def search_semantic(queries,k=3):
     best_match_indices = []
     for query in queries:
         # To load it back later (e.g., in a separate run or script):
@@ -29,7 +29,7 @@ def search_semantic(queries):
         # 2. Search the index
         # k=3 means we want the top 3 closest match
         # 'distances' contains the similarity scores, 'indices' contains the position tracking numbers
-        distances, indices = index.search(query_vector, k=3)
+        distances, indices = index.search(query_vector, k=k)
 
         # 3. Retrieve the matching text using the returned index reference
         best_match_idx = indices[0]

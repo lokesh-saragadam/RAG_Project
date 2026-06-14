@@ -1,0 +1,13 @@
+#To load the env file and use The api key for LLM
+dotenv
+
+numpy
+
+#For embedding search space / vector database
+faiss
+
+#For reading pdf text
+pypdf
+
+#For embedding text data
+sentence_transformers
