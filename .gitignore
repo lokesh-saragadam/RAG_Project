@@ -1,0 +1,17 @@
+# all the data folder
+data/
+
+#all the cache
+*pycache*
+
+#The simple models
+local_minilm_model/
+
+#project run specific data
+my_faiss_index.index
+
+#my virtual env.
+venv1/
+
+#my environment variables file
+src/.env
