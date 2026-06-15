@@ -19,6 +19,7 @@ def build_index(chunks):
 
 def search_semantic(queries,k=3):
     best_match_indices = []
+    similarity_scores = []
     for query in queries:
         # To load it back later (e.g., in a separate run or script):
         index = faiss.read_index("my_faiss_index.index")
@@ -39,6 +40,7 @@ def search_semantic(queries,k=3):
         print(f"Matched Document Index: {best_match_idx}")
     # print(f"Similarity Score (Dot Product): {similarity_score:.4f}")
         best_match_indices.append(best_match_idx)
-    return best_match_indices
+        similarity_scores.append(similarity_score)
+    return best_match_indices,similarity_scores
 
 

@@ -22,7 +22,7 @@ def chunk_text(texts, sources, chunk_size=500, overlap=100):
     step = chunk_size - overlap
 
     for document, source in zip(texts, sources):
-
+        chunk_id = 0
         all_words = []
         page_boundaries = []
 
@@ -53,8 +53,11 @@ def chunk_text(texts, sources, chunk_size=500, overlap=100):
             chunks.append({
                 "text": " ".join(chunk_words),
                 "page": start_page,
-                "source": source
+                "source": source,
+                "chunk_id": chunk_id
             })
+
+            chunk_id += 1
 
     return chunks
 
