@@ -1,3 +1,4 @@
+import json
 import os
 from google import genai
 from google.genai import types
@@ -8,40 +9,71 @@ load_dotenv(".env")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
-def answer_with_context(query, context):
-    # 1. Combine all retrieved text chunks into one organized string
-    context_block=""
+def generate_answers(contexts, queries):
 
-    for retrieved_chunks in context:
-        context_block += "\n---\n".join(retrieved_chunks)
-        context_block += "content for repsective query.\n" 
+    payload = []
 
-    # 2. Construct the structured prompt payload
+    for i, (query, retrieved_chunks) in enumerate(
+        zip(queries, contexts), start=1
+    ):
+        payload.append(
+            {
+                "query_id": i,
+                "question": query,
+                "context": retrieved_chunks
+            }
+        )
+
     prompt = f"""
-    CONTEXTS FROM DOCUMENTS:
-    {context_block}
-    
-    USER QUESTIONS:
-    {query}
+        Answer each query independently.
+
+        For every query:
+        - Use ONLY its associated context.
+        - Do NOT use information from other queries.
+        - If the answer is not present, return:
+        "I cannot find the answer in the provided documents."
+
+        Input:
+
+        {json.dumps(payload, indent=2)}
+
+        Return ONLY valid JSON:
+
+        {{
+            "answers": [
+                {{
+                    "query_id": 1,
+                    "answer": "..."
+                }}
+            ]
+        }}
     """
-    
-    # 3. Configure strict system rules to prevent hallucinations
-    system_rules = (
-        "You are a precise factual assistant. Answer the user question using ONLY the provided "
-        "Context From Documents. If the context does not contain the answer, say "
-        "'I cannot find the answer in the provided documents.' Do not make things up."
-    )
-    
-    # 4. Execute the call
+
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt, 
+        model="gemini-2.5-flash",
+        contents=prompt,
         config=types.GenerateContentConfig(
-            system_instruction=system_rules,
-            temperature=0.0,  # CRITICAL: Keep at 0.0 for strict factual accuracy
-            top_p=0.95,
+            system_instruction="""
+                You are a precise factual assistant.
+
+                Use only the context attached to each query.
+                Never use information from another query's context.
+                Return only valid JSON.
+            """,
+            temperature=0.0,
         ),
     )
-    return response.text
 
+    text = response.text.strip()
+
+    if text.startswith("```json"):
+        text = text[7:]      # remove ```json
+
+    if text.endswith("```"):
+        text = text[:-3]     # remove closing ```
+
+    text = text.strip()
+
+    result = json.loads(text)
+    return result
 

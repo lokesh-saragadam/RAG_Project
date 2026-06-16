@@ -43,4 +43,15 @@ def search_semantic(queries,k=3):
         similarity_scores.append(similarity_score)
     return best_match_indices,similarity_scores
 
+def similiarity_score(answers,expected_answers):
+    sim_scores = [] 
+    for (ans,exp_ans) in zip(answers,expected_answers):
+        emb1 = get_embedding([ans])[0]
+        emb2 = get_embedding([exp_ans])[0]
 
+        score = np.dot(emb1, emb2) / (
+            np.linalg.norm(emb1) * np.linalg.norm(emb2)
+        )
+        sim_scores.append(round(float(score), 4))
+    
+    return sim_scores
