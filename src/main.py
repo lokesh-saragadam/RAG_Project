@@ -10,17 +10,17 @@ from evaluation import evaluate_scores,decision_tree
 
 ##Create and Save Chunks
 
-file_paths = ["../data/4k weeks.pdf","../data/Atomic habits.pdf","../data/Web App Development Plan.pdf"]
+# file_paths = ["../data/4k weeks.pdf","../data/Atomic habits.pdf","../data/Web App Development Plan.pdf"]
 
-sources = [ "Four Thousand Weeks","Atomic Habits", "Web Development Plan"]
+# sources = [ "Four Thousand Weeks","Atomic Habits", "Web Development Plan"]
 
-texts = extract_pdf(file_paths)
+# texts = extract_pdf(file_paths)
 
-chunks = chunk_text(texts,sources,chunk_size=500)
+# chunks = chunk_text(texts,sources,chunk_size=500)
 
-print("Total Chunks :",len(chunks))
+# print("Total Chunks :",len(chunks))
 
-save_chunks(chunks,"..\data\chunks.jsonl")
+# save_chunks(chunks,"..\data\chunks.jsonl")
 
 # sys.exit()
 
@@ -30,44 +30,56 @@ chunks = load_chunks("..\data\chunks.jsonl")
 
 queries_data = load_queries("..\data\Queries.json")
 
-queries = query_extraction(queries_data[:10])
+queries = query_extraction(queries_data)
 
 #storing semantic meanaing of the chunks
 string_chunks = [f"{chunk}" for chunk in chunks]
 build_index(string_chunks)
 
 #searching for the similiar vectors to that of a query vector
-best_indices,similiarity_scores = search_semantic(queries,k=3)
+best_indices,similiarity_scores = search_semantic(queries,k=10)
 
 #Processing chunks 
 
 print("The sources used include : ",)
 different_query_chunks =[]
 retrieval_chunk_idx = []
+retrieval_chunk_idx_2 = []
 for best_idx,sim_scores in zip(best_indices,similiarity_scores):
     top_k_chunks_stringified = []
     top_k_chunks = []
-    for id,score in zip(best_idx,sim_scores):
+    for ind,id in enumerate(best_idx):
         top_k_chunks_stringified.append(string_chunks[id])
         top_k_chunks.append(chunks[id])
+        
+        # print("Rank :", ind )
+        # print("Similiarity :",sim_scores[ind])
+        # print("Source :",chunks[id]["source"])
+        # print("Page :",chunks[id]["page"])
 
         # print("",chunks[id]["chunk_id"],"\n",chunks[id]["page"],"\n",chunks[id]["source"],"\n",f"{score:.3f} \n")
 
     different_query_chunks.extend(top_k_chunks_stringified)
     retrieval_chunk_idx.append(top_k_chunks)
+    retrieval_chunk_idx_2.append(top_k_chunks[:5])
 
 
 #Retreival evaluation
 source_scores,citation_scores = evaluate_scores(queries_data,retrieval_chunk_idx) #retreival accuracy.
+_,cit_scores = evaluate_scores(queries_data,retrieval_chunk_idx_2)
+print(citation_scores)
+print(cit_scores)
+
+##citation score tells whether or not correct chunk is present in the retrieved chunks...
 
 ##Generate Answers from retrieved context.
 
-result = generate_answers(contexts=different_query_chunks,queries=queries) #json object.
+# result = generate_answers(contexts=different_query_chunks,queries=queries) #json object.
 
-with open("../data/answers.json", "w") as f:
-    json.dump(result, f, indent=4)
+# with open("../data/answers.json", "w") as f:
+#     json.dump(result, f, indent=4)
 
-# sys.exit()
+sys.exit()
 
 #evaluating the answers....
 

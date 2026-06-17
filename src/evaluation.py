@@ -29,11 +29,11 @@ def evaluate_scores(queries_data,retrieved_data):
         for source,page in zip(ret_sources,ret_pages):
             if source in exp_sources:
                 score_s+=1
-            if (page <= exp_pages[0]+2 and page >= exp_pages[0]-2):
-                score_c+=1
+            if (page == exp_pages[0] ):
+                score_c=1
             
         source_score.append(score_s/len(ret_sources))
-        citation_score.append(round(score_c/len(ret_pages),3))
+        citation_score.append(score_c)
 
     return  source_score,citation_score
 
