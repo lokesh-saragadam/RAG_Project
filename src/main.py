@@ -1,99 +1,147 @@
-import sys
 import json
+
 from pdf_Reader import extract_pdf
 from chunker import chunk_text
-from data_handling import load_chunks,save_chunks,load_queries,query_extraction
-from search import search_chunks
+from data_handling import save_chunks,load_queries,query_extraction
 from vector_store import build_index,search_semantic,similiarity_score
 from rag_pipeline import generate_answers
-from evaluation import evaluate_scores,decision_tree
+from evaluation import  evaluate_scores,decision_tree
 
-##Create and Save Chunks
+# INITIALIZATION
 
-# file_paths = ["../data/4k weeks.pdf","../data/Atomic habits.pdf","../data/Web App Development Plan.pdf"]
+def initialize_rag( file_paths,source_names,chunk_size=400,overlap=50):
+    """
+    Run in the begingning to create and save chunks, and build the FAISS index.
+    Returns:
+        chunks,string_chunks
+    """
+    texts = extract_pdf(file_paths)
 
-# sources = [ "Four Thousand Weeks","Atomic Habits", "Web Development Plan"]
+    chunks = chunk_text(texts,source_names,chunk_size=chunk_size,overlap=overlap)
 
-# texts = extract_pdf(file_paths)
+    save_chunks(chunks,"../data/chunks.jsonl")
 
-# chunks = chunk_text(texts,sources,chunk_size=500)
+    string_chunks = [
+        str(chunk)
+        for chunk in chunks
+    ]
 
-# print("Total Chunks :",len(chunks))
+    build_index(string_chunks)
 
-# save_chunks(chunks,"..\data\chunks.jsonl")
+    print(f"Total Chunks: {len(chunks)}")
 
-# sys.exit()
+    return chunks, string_chunks
 
-##Loading the Chunks
+# RETRIEVAL
 
-chunks = load_chunks("..\data\chunks.jsonl")
+def retrieve_context(query,chunks,string_chunks,k=5):
+    """
+    Retrieve top-k chunks for a single user query.
+    Returns:
+        retrieved_context,citations,retrieved_chunks
+    """
 
-queries_data = load_queries("..\data\Queries.json")
+    best_indices, similarity_scores = search_semantic(
+        [query],
+        k=k,
+    )
 
-queries = query_extraction(queries_data)
+    retrieved_context = []
 
-#storing semantic meanaing of the chunks
-string_chunks = [f"{chunk}" for chunk in chunks]
-build_index(string_chunks)
+    retrieved_chunks = []
 
-#searching for the similiar vectors to that of a query vector
-best_indices,similiarity_scores = search_semantic(queries,k=10)
+    citations = []
 
-#Processing chunks 
+    for idx in best_indices[0]:
 
-print("The sources used include : ",)
-different_query_chunks =[]
-retrieval_chunk_idx = []
-retrieval_chunk_idx_2 = []
-for best_idx,sim_scores in zip(best_indices,similiarity_scores):
-    top_k_chunks_stringified = []
-    top_k_chunks = []
-    for ind,id in enumerate(best_idx):
-        top_k_chunks_stringified.append(string_chunks[id])
-        top_k_chunks.append(chunks[id])
-        
-        # print("Rank :", ind )
-        # print("Similiarity :",sim_scores[ind])
-        # print("Source :",chunks[id]["source"])
-        # print("Page :",chunks[id]["page"])
+        retrieved_context.append(string_chunks[idx])
 
-        # print("",chunks[id]["chunk_id"],"\n",chunks[id]["page"],"\n",chunks[id]["source"],"\n",f"{score:.3f} \n")
+        retrieved_chunks.append(chunks[idx])
 
-    different_query_chunks.extend(top_k_chunks_stringified)
-    retrieval_chunk_idx.append(top_k_chunks)
-    retrieval_chunk_idx_2.append(top_k_chunks[:5])
+        citations.append((chunks[idx]["source"],chunks[idx]["page"]))
+
+    citations = list(set(citations))
+
+    return (retrieved_context,citations,retrieved_chunks,similarity_scores[0])
 
 
-#Retreival evaluation
-source_scores,citation_scores = evaluate_scores(queries_data,retrieval_chunk_idx) #retreival accuracy.
-_,cit_scores = evaluate_scores(queries_data,retrieval_chunk_idx_2)
-print(citation_scores)
-print(cit_scores)
+# ANSWER GENERATION
 
-##citation score tells whether or not correct chunk is present in the retrieved chunks...
+def generate_response(query,chunks,string_chunks,k=5,):
+    """
+    End-to-end RAG query.
+    """
+    (contexts,citations,retrieved_chunks,retrieval_scores)=retrieve_context(query,chunks,string_chunks,k=k)
 
-##Generate Answers from retrieved context.
+    result = generate_answers(contexts=contexts,queries=[query],)
 
-# result = generate_answers(contexts=different_query_chunks,queries=queries) #json object.
+    answer = result["answers"][0]["answer"]
 
-# with open("../data/answers.json", "w") as f:
-#     json.dump(result, f, indent=4)
+    return {
+        "query": query,
+        "answer": answer,
+        "citations": citations,
+        "retrieved_chunks": retrieved_chunks,
+        "retrieval_scores": retrieval_scores,
+    }
 
-sys.exit()
 
-#evaluating the answers....
+# EVALUATION
 
-with open("../data/answers.json", "r") as f:
-    result = json.load(f)
+def evaluate_pipeline(query_file,chunks,string_chunks,k=5,):
+    """
+    Used only for benchmarking.
+    """
 
-answers = [item["answer"] for item in result["answers"]]
+    queries_data = load_queries(query_file)
 
-sim_scores = similiarity_score(queries,answers)
+    queries = query_extraction(queries_data)
 
-print("Similiarity Answer scores are : ",sim_scores)
-print("Source matches are : ",source_scores)
-print("Citation matches are : ",citation_scores)
+    retrieval_chunk_idx = []
 
-decisions = decision_tree(sim_scores=sim_scores,source_scores=source_scores,cit_scores=citation_scores)
+    sources = []
 
-print(decisions)
+    all_contexts = []
+
+    best_indices, _ = search_semantic(queries,k=k,)
+
+    for best_idx in best_indices:
+
+        curr_chunks = []
+
+        curr_sources = []
+
+        for idx in best_idx:
+
+            curr_chunks.append(chunks[idx])
+
+            curr_sources.append((chunks[idx]["source"],chunks[idx]["page"]))
+
+            all_contexts.append(string_chunks[idx])
+
+        retrieval_chunk_idx.append(curr_chunks)
+
+        sources.append(list(set(curr_sources)))
+
+    source_scores, citation_scores = (evaluate_scores(queries_data,retrieval_chunk_idx))
+
+    result = generate_answers(contexts=all_contexts,queries=queries)
+
+    answers = [item["answer"]for item in result["answers"]]
+
+    sim_scores = similiarity_score(queries,answers,)
+
+    decisions = decision_tree(
+        sim_scores=sim_scores,
+        source_scores=source_scores,
+        cit_scores=citation_scores,
+    )
+
+    return {
+        "answers": answers,
+        "sources": sources,
+        "similarity_scores": sim_scores,
+        "source_scores": source_scores,
+        "citation_scores": citation_scores,
+        "decisions": decisions,
+    }

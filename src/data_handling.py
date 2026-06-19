@@ -27,3 +27,8 @@ def load_chunks(path):
 
     return chunks
 
+def print_answers(answers,sources):
+    for idx,ans in enumerate(answers):
+        print(f"Answer {idx+1} : {ans}")
+        for id,source in enumerate(sources[idx]):
+            print(f"    Source {id+1} {source[0]}.pdf Page {source[1]}")

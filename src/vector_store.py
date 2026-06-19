@@ -36,8 +36,8 @@ def search_semantic(queries,k=3):
         best_match_idx = indices[0]
         similarity_score = distances[0]
 
-        print(f"\nUser Query: {query}")
-        print(f"Matched Document Index: {best_match_idx}")
+        # print(f"\nUser Query: {query}")
+        # print(f"Matched Document Index: {best_match_idx}")
     # print(f"Similarity Score (Dot Product): {similarity_score:.4f}")
         best_match_indices.append(best_match_idx)
         similarity_scores.append(similarity_score)
