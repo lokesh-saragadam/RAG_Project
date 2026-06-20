@@ -54,9 +54,7 @@ def generate_answers(contexts, queries):
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction="""
-                You are a precise factual assistant.
-
-                Use only the context attached to each query.
+                Use only the context attached to each query to answer them.
                 Never use information from another query's context.
                 Return only valid JSON.
             """,

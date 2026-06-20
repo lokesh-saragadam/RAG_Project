@@ -1,4 +1,5 @@
 import json
+import streamlit as st
 
 from pdf_Reader import extract_pdf
 from chunker import chunk_text
@@ -9,24 +10,26 @@ from evaluation import  evaluate_scores,decision_tree
 
 # INITIALIZATION
 
-def initialize_rag( file_paths,source_names,chunk_size=400,overlap=50):
+def initialize_rag( file_paths,source_names,chunk_size=500,overlap=100):
     """
     Run in the begingning to create and save chunks, and build the FAISS index.
     Returns:
         chunks,string_chunks
     """
-    texts = extract_pdf(file_paths)
+    with st.spinner("Initializing RAG Pipeline..."):
+        with st.spinner("Extracting text from PDFs..."):
+            texts = extract_pdf(file_paths)
 
-    chunks = chunk_text(texts,source_names,chunk_size=chunk_size,overlap=overlap)
+            chunks = chunk_text(texts,source_names,chunk_size=chunk_size,overlap=overlap)
 
-    save_chunks(chunks,"../data/chunks.jsonl")
+            save_chunks(chunks,"../data/chunks.jsonl")
 
-    string_chunks = [
-        str(chunk)
-        for chunk in chunks
-    ]
-
-    build_index(string_chunks)
+            string_chunks = [
+                str(chunk)
+                for chunk in chunks
+            ]
+    with st.spinner("Building FAISS index..."):
+        build_index(string_chunks)
 
     print(f"Total Chunks: {len(chunks)}")
 
@@ -40,11 +43,11 @@ def retrieve_context(query,chunks,string_chunks,k=5):
     Returns:
         retrieved_context,citations,retrieved_chunks
     """
-
-    best_indices, similarity_scores = search_semantic(
-        [query],
-        k=k,
-    )
+    with st.spinner("Retrieving relevant context..."):
+        best_indices, similarity_scores = search_semantic(
+            [query],
+            k=k,
+        )
 
     retrieved_context = []
 
@@ -67,13 +70,13 @@ def retrieve_context(query,chunks,string_chunks,k=5):
 
 # ANSWER GENERATION
 
-def generate_response(query,chunks,string_chunks,k=5,):
+def generate_response(query,chunks,string_chunks,k=10,):
     """
     End-to-end RAG query.
     """
     (contexts,citations,retrieved_chunks,retrieval_scores)=retrieve_context(query,chunks,string_chunks,k=k)
-
-    result = generate_answers(contexts=contexts,queries=[query],)
+    with st.spinner("Generating answer..."):
+        result = generate_answers(contexts=contexts,queries=[query],)
 
     answer = result["answers"][0]["answer"]
 
@@ -88,12 +91,12 @@ def generate_response(query,chunks,string_chunks,k=5,):
 
 # EVALUATION
 
-def evaluate_pipeline(query_file,chunks,string_chunks,k=5,):
+def evaluate_pipeline(query_data,chunks,string_chunks,k=5,):
     """
     Used only for benchmarking.
     """
 
-    queries_data = load_queries(query_file)
+    queries_data = [query_data]
 
     queries = query_extraction(queries_data)
 
@@ -102,8 +105,8 @@ def evaluate_pipeline(query_file,chunks,string_chunks,k=5,):
     sources = []
 
     all_contexts = []
-
-    best_indices, _ = search_semantic(queries,k=k,)
+    with st.spinner("Retreiving chunks .."):
+        best_indices, _ = search_semantic(queries,k=k,)
 
     for best_idx in best_indices:
 
@@ -122,20 +125,20 @@ def evaluate_pipeline(query_file,chunks,string_chunks,k=5,):
         retrieval_chunk_idx.append(curr_chunks)
 
         sources.append(list(set(curr_sources)))
-
-    source_scores, citation_scores = (evaluate_scores(queries_data,retrieval_chunk_idx))
-
-    result = generate_answers(contexts=all_contexts,queries=queries)
+    with st.spinner("Calculating evaluation scores .."):
+        source_scores, citation_scores = (evaluate_scores(queries_data,retrieval_chunk_idx))
+    with st.spinner("Generating answer .. "):
+        result = generate_answers(contexts=all_contexts,queries=queries)
 
     answers = [item["answer"]for item in result["answers"]]
 
     sim_scores = similiarity_score(queries,answers,)
-
-    decisions = decision_tree(
-        sim_scores=sim_scores,
-        source_scores=source_scores,
-        cit_scores=citation_scores,
-    )
+    with st.spinner("Deciding if the retirieval worked.."):
+        decisions = decision_tree(
+            sim_scores=sim_scores,
+            source_scores=source_scores,
+            cit_scores=citation_scores,
+        )
 
     return {
         "answers": answers,
