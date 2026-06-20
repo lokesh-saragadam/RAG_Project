@@ -1,4 +1,4 @@
-Architecture:
+Architecture: /n
 PDFs
 ↓
 Chunking
